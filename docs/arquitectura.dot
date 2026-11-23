@@ -1,0 +1,42 @@
+digraph arquitectura {
+    rankdir=LR; splines=true; nodesep=0.55; ranksep=0.9; pad=0.4; compound=true;
+    fontname="DejaVu Sans"; bgcolor="white";
+    node [fontname="DejaVu Sans", fontsize=12, style="filled,rounded", shape=box, penwidth=1.4, margin="0.2,0.12"];
+    edge [fontname="DejaVu Sans", fontsize=10, color="#555555", fontcolor="#333333", penwidth=1.3];
+
+    labelloc=t; fontsize=18;
+    label=<<B>Arquitectura: DBF bronze → silver (Dataproc Serverless + Airflow)</B>>;
+
+    DBF [label=<<B>Archivos DBF</B><BR/>Clientes y Productos>, shape=note, style=filled, fillcolor="#FFF4D6", color="#C9A227"];
+
+    subgraph cluster_gcp {
+        label=<<B>Google Cloud</B> · proyecto banco-bogota-515414>; labeljust=l; fontsize=13;
+        style="rounded,dashed"; color="#888888"; bgcolor="#FAFAFA";
+
+        BRONZE [label=<<B>GCS bronze</B><BR/>informacion_clientes/<BR/><I>DBF originales</I>>, shape=cylinder, style=filled, fillcolor="#FCE4D6", color="#C55A11"];
+
+        subgraph cluster_composer {
+            label=<<B>Cloud Composer (Airflow)</B><BR/>DAG bronze_a_silver_clientes>; fontsize=12;
+            style="rounded,filled"; color="#2E75B6"; fillcolor="#DEEBF7";
+            T1 [label=<<B>1. hay_archivos_en_bronze</B><BR/>sensor>, fillcolor="#FFFFFF", color="#2E75B6"];
+            T2 [label=<<B>2. bronze_a_silver</B><BR/>lanza el batch>, fillcolor="#FFFFFF", color="#2E75B6"];
+            T3 [label=<<B>3. registrar_ejecucion</B><BR/>corre siempre>, fillcolor="#FFFFFF", color="#2E75B6"];
+            T1 -> T2 -> T3 [color="#2E75B6", penwidth=1.6];
+        }
+
+        SPARK [label=<<B>Dataproc Serverless</B><BR/>job PySpark<BR/>cruce + anonimización>, fillcolor="#E2F0D9", color="#548235"];
+        CODIGO [label=<<B>GCS silver</B><BR/>codigo/<BR/><I>job bronze_to_silver.py</I>>, shape=cylinder, style=filled, fillcolor="#EDEDED", color="#7F7F7F"];
+        SECRET [label=<<B>Secret Manager</B><BR/>llave HMAC>, fillcolor="#F8CBAD", color="#C55A11"];
+        SILVER [label=<<B>GCS silver</B><BR/>informacion_clientes/<BR/><I>.txt anonimizados</I>>, shape=cylinder, style=filled, fillcolor="#E2F0D9", color="#548235"];
+        BQ [label=<<B>BigQuery</B><BR/>auditoria.<BR/>ejecuciones_airflow>, shape=cylinder, style=filled, fillcolor="#DEEBF7", color="#2E75B6"];
+    }
+
+    DBF -> BRONZE [label="se depositan"];
+    BRONZE -> T1 [style=dashed, label="detecta\narchivos"];
+    T2 -> SPARK [label="crea el batch"];
+    BRONZE -> SPARK [label="lee los DBF"];
+    CODIGO -> SPARK [style=dashed, label="código del job"];
+    SECRET -> SPARK [style=dashed, label="lee la llave"];
+    SPARK -> SILVER [label="escribe"];
+    T3 -> BQ [label="fila EXITOSO\no FALLIDO"];
+}
